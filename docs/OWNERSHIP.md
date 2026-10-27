@@ -1,6 +1,6 @@
 # Кто что делает
 
-> Два разработчика, задачи из [STAGE2_TASK_BOARD.md](STAGE2_TASK_BOARD.md).
+> Два разработчика, задачи из [STAGE2_TASK_BOARD.md](archive/STAGE2_TASK_BOARD.md).
 > **@m4rk1sov**: платформа. **@raursq**: AI.
 > Ревьюеры по файлам: [.github/CODEOWNERS](../.github/CODEOWNERS).
 >

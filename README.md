@@ -5,10 +5,12 @@
 > university's behavioural rubric, and says so plainly when there is no evidence
 > rather than scoring it low.
 
+Built by team **Winchesters**
+
 🏆 **Top 4 out of ~5,000 participants** at **Decentrathon 5.0**, powered by inDrive  
 🎯 **Semi-finalist** at **GovTech Camp**, powered by inDrive
 
-[Architecture](docs/architecture.md) · [Demo click audit](docs/plan/led-12-demo-click-audit.md) · [Task board](docs/STAGE2_TASK_BOARD.md)
+[Architecture](docs/architecture.md)
 
 ---
 
@@ -67,6 +69,9 @@ non-native writing, and nothing calibrated for Kazakh exists.
 
 ## Status
 
+Hackathon project. Planning notes from the competition are in
+[docs/archive/](docs/archive/).
+
 Working end to end:
 
 - **Applicant**: sign up, the five-step application, review and submit; one
@@ -77,7 +82,7 @@ Working end to end:
   interviewer brief, growth map and decision memo (PDF).
 - **Fairness audit**: group comparison per competency, with review flags.
 - **Quality**: 445 backend tests pass; the whole demo path produces no 5xx
-  responses and no console errors ([audit](docs/plan/led-12-demo-click-audit.md)).
+  responses and no console errors ([audit](docs/archive/led-12-demo-click-audit.md)).
 
 The demo works **without any API key**. Every click reads from the database, a
 cache labelled as one, or a deterministic baseline. Live-only endpoints answer

@@ -1,4 +1,4 @@
-# Borda votes (15..1 points for each voter's top 15). Totals in docs/STAGE2_IMPROVEMENT_PLAN.md §5.
+# Borda votes (15..1 points for each voter's top 15). Totals in docs/archive/STAGE2_IMPROVEMENT_PLAN.md §5.
 
 ## hackathon_judge
 C01 15

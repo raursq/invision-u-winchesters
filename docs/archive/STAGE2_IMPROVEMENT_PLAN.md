@@ -259,7 +259,7 @@ Deterministic filter on every candidate-facing sentence and every interviewer pr
 
 ## 7. Roadmap (Sep 20 – Nov 10)
 
-**Team and how work is split.** Two fullstack developers and one designer who covers both UX/UI and graphic work. Tasks are split by **workstream**, not by person: either developer picks from any stream, and the dependency chain, not the name, decides order. The task-level board with IDs, effort, dependencies and plan references is `docs/STAGE2_TASK_BOARD.md` (same content interactive in `docs/task_board.html`; open it locally in a browser).
+**Team and how work is split.** Two fullstack developers and one designer who covers both UX/UI and graphic work. Tasks are split by **workstream**, not by person: either developer picks from any stream, and the dependency chain, not the name, decides order. The task-level board with IDs, effort, dependencies and plan references is `docs/archive/STAGE2_TASK_BOARD.md` (same content interactive in `docs/archive/task_board.html`; open it locally in a browser).
 
 | Stream | What it delivers | Demo-critical tasks | Ranked items |
 |---|---|---|---|
@@ -320,5 +320,5 @@ Deterministic filter on every candidate-facing sentence and every interviewer pr
 
 ## 10. Appendix: pointers
 - Full research reports with citations: `docs/research/agent_methodology.md`, `agent_product.md`, `agent_technical.md`, `agent_fairness.md`, `agent_multilingual.md`; consolidated candidates and vote tallies: `docs/research/candidates.md`, `votes_*.txt`.
-- Task board: `docs/STAGE2_TASK_BOARD.md` (text, grouped by workstream) and `docs/task_board.html` (interactive; open locally in a browser, progress saved per browser).
+- Task board: `docs/archive/STAGE2_TASK_BOARD.md` (text, grouped by workstream) and `docs/archive/task_board.html` (interactive; open locally in a browser, progress saved per browser).
 - Prompting rules for every Claude call: `~/.claude/reference_opus48_prompting.md` (documents at top, instructions at bottom, XML tags, 3–5 examples incl. the empty case, reasoning before answer, JSON-schema outputs, no sampling knobs, no last-turn prefill).
