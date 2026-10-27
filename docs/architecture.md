@@ -1,248 +1,112 @@
-# InVision U — Solution Architecture
+# inVision U — Solution Architecture
 
-## 1. System Architecture
+## 1. System overview
 
 ```mermaid
 graph TB
-    subgraph Frontend["Frontend (Next.js + React)"]
-        LP[Landing Page<br/>/ ]
-        APP[Application Form<br/>6-step with sidebar]
-        TEACH[Teaching Challenge<br/>/teach]
-        DASH[Admissions Dashboard<br/>/dashboard]
+    subgraph Frontend["Frontend · Next.js 16 / React 19"]
+        APPLY[Applicant portal<br/>five-step application]
+        SCEN[Scenarios<br/>conversation partner · EN / RU / KZ]
+        DASH[Admissions dashboard<br/>committee and admin only]
     end
 
-    subgraph Backend["Backend (FastAPI)"]
-        API[REST API — 16 endpoints]
-        subgraph Scoring["Scoring Engine"]
-            SE[Signal Extractor<br/>Pure Python]
-            BL[Baseline Scorer<br/>Rule-based]
-            AI[AI Scorer<br/>Claude Sonnet 4]
-            AGG[Score Aggregator<br/>Configurable weights]
-        end
-        subgraph Detection["AI Detection"]
-            LANG[Language Detection<br/>KZ / RU / EN]
-            STYL[Statistical Stylometry<br/>7 metrics, no AI]
-            QUAL[Qualitative Analysis<br/>Claude Sonnet 4]
-            COMB[Combined Score<br/>40/60 blend]
-        end
-        subgraph Feynman["Feynman Teaching Engine"]
-            CHAT[AI Student — Arman<br/>Claude as confused 10-year-old]
-            QUIZ[Knowledge Transfer Quiz<br/>3 topic-specific questions]
-            FEVAL[Teaching Evaluator<br/>Clarity, Patience, Empathy, Adaptability]
-        end
-        PII[PII Anonymizer]
-        OVR[Committee Override<br/>Human-in-the-Loop]
+    subgraph Backend["Backend · FastAPI"]
+        AUTH[auth · roles and JWT]
+        CAND[candidates]
+        LEDGER[ledger pipeline<br/>extract → verify → rate → assemble]
+        SCENR[scenarios]
+        OVR[overrides · append-only]
+        COMM[committee<br/>pre-brief · decision memo · PDF]
+        FAIR[fairness audit · evaluation]
+        PRIV[privacy.py<br/>PII stripped before any model call]
+        LLM[llm.py<br/>the only model client]
     end
 
-    subgraph Storage["Data Layer"]
-        DB[(candidates.json<br/>15 candidates, 3 languages)]
-        CACHE[In-Memory Cache]
-    end
+    DB[(SQLite · SQLModel + Alembic)]
+    CLAUDE[Claude API<br/>optional: demo mode without a key]
 
-    subgraph External["External Services"]
-        CLAUDE[Claude API<br/>Sonnet 4]
-    end
-
-    LP -->|Start Application| APP
-    APP -->|POST /api/candidates| API
-    APP -->|After Submit| TEACH
-    TEACH -->|Chat + Finish| API
-    DASH -->|Score, Rank, Override| API
-    API --> SE
-    SE --> BL
-    SE --> AI
-    AI --> PII
-    PII -->|anonymized data| CLAUDE
-    BL --> AGG
-    AI --> AGG
-    AGG --> CACHE
-    API --> LANG
-    LANG --> STYL
-    STYL --> QUAL
-    QUAL --> COMB
-    API --> CHAT
-    CHAT --> CLAUDE
-    CHAT --> QUIZ
-    QUIZ --> FEVAL
-    OVR -->|override score| AGG
-    API --> DB
-    API --> CACHE
-
-    style Frontend fill:#e0e7ff,stroke:#4f46e5
-    style Backend fill:#f0fdf4,stroke:#10b981
-    style Storage fill:#fef3c7,stroke:#f59e0b
-    style External fill:#fce7f3,stroke:#ec4899
+    APPLY --> CAND
+    SCEN --> SCENR
+    DASH --> LEDGER & OVR & COMM & FAIR
+    CAND --> LEDGER
+    SCENR --> LEDGER
+    LEDGER --> PRIV --> LLM --> CLAUDE
+    AUTH & CAND & LEDGER & SCENR & OVR & COMM & FAIR --> DB
 ```
 
-## 2. Applicant Flow
+The browser only talks to the frontend; Next.js proxies `/api` to the backend.
+Every router checks the caller's role (`backend/routers/guards.py`).
 
-```mermaid
-flowchart LR
-    subgraph Apply["Application (6 steps)"]
-        S1[Personal Info] --> S2[Education]
-        S2 --> S3[Essay & Motivation]
-        S3 --> S4[Extracurriculars]
-        S4 --> S5[Video Presentation]
-        S5 --> S6[Review & Submit]
-    end
-
-    subgraph Feynman["Teaching Challenge"]
-        F1[Pick Topic] --> F2[Chat with Arman]
-        F2 --> F3[Arman Takes Quiz]
-        F3 --> F4[Get Teaching Score]
-    end
-
-    S6 -->|Submit| F1
-    F4 --> DONE[Application Complete]
-
-    style Apply fill:#f0fdf4,stroke:#10b981
-    style Feynman fill:#ede9fe,stroke:#7c3aed
-```
-
-## 3. Scoring Pipeline (3-Stage)
-
-```mermaid
-flowchart LR
-    subgraph Stage1["Stage 1: Signal Extraction (Pure Python)"]
-        C[Candidate Data] --> EX[extract_signals]
-        EX --> AC[Academic Signals]
-        EX --> LD[Leadership Signals]
-        EX --> GR[Growth Signals<br/>delta = current - starting]
-        EX --> CM[Communication Signals]
-        EX --> MO[Motivation Signals]
-    end
-
-    subgraph Stage2["Stage 2: Dual Scoring"]
-        AC & LD & GR & CM & MO --> BAS[Baseline Scorer<br/>Rule-based, instant]
-        AC & LD & GR & CM & MO --> AIS[AI Scorer<br/>Claude + raw text]
-    end
-
-    subgraph Stage3["Stage 3: Aggregation"]
-        BAS --> W[Weighted Sum<br/>Committee-configurable]
-        AIS --> W
-        W --> REC[Recommend / Consider / Needs Attention]
-    end
-
-    style Stage1 fill:#ede9fe,stroke:#7c3aed
-    style Stage2 fill:#e0f2fe,stroke:#0284c7
-    style Stage3 fill:#f0fdf4,stroke:#16a34a
-```
-
-## 4. AI Detection Pipeline
-
-```mermaid
-flowchart LR
-    subgraph Input
-        ESS[Essay Text]
-        INT[Interview Transcript]
-    end
-
-    subgraph S1["Stage 1: Language Detection + Stylometry"]
-        ESS --> DETECT[detect_language<br/>KZ / RU / EN]
-        DETECT --> COMP[compute_stylometry]
-        INT --> COMP
-        COMP --> METRICS[7 Metrics<br/>TTR, sentence variance,<br/>hapax, formality, overlap,<br/>word length, sentence length]
-        METRICS --> SS[Statistical Score<br/>Language-specific thresholds]
-    end
-
-    subgraph S2["Stage 2: Claude Qualitative"]
-        ESS --> CL[Claude Analysis]
-        INT --> CL
-        SS -.->|metrics as context| CL
-        CL --> QS[Qualitative Score]
-    end
-
-    subgraph S3["Stage 3: Combined"]
-        SS -->|40%| BLEND[Weighted Blend]
-        QS -->|60%| BLEND
-        BLEND --> FINAL[Authenticity Score + Flags]
-    end
-
-    style S1 fill:#fef3c7,stroke:#d97706
-    style S2 fill:#e0e7ff,stroke:#4f46e5
-    style S3 fill:#f0fdf4,stroke:#16a34a
-```
-
-## 5. Feynman Teaching Challenge
-
-```mermaid
-flowchart TB
-    subgraph Session["Teaching Session"]
-        START[Candidate picks topic] --> CHAT[Chat with Arman<br/>Claude as confused 10-year-old]
-        CHAT -->|4+ exchanges| FINISH[End Session]
-        CHAT -->|Arman intentionally<br/>misunderstands once| TEST[Patience Test]
-        TEST --> CHAT
-    end
-
-    subgraph Evaluation["3 Claude Calls"]
-        FINISH --> Q[Quiz Arman<br/>3 topic questions]
-        Q --> SCORE[Evaluate Conversation]
-        SCORE --> RESULT[Scores: Clarity, Patience,<br/>Empathy, Adaptability,<br/>Quiz Transfer, Overall]
-    end
-
-    style Session fill:#ede9fe,stroke:#7c3aed
-    style Evaluation fill:#f0fdf4,stroke:#16a34a
-```
-
-## 6. Dashboard Features
-
-```mermaid
-flowchart TB
-    subgraph Dashboard["Admissions Dashboard"]
-        STATS[Stats: Total / Recommend / Consider / Needs Attention / Hidden Gems]
-        EVAL[Evaluation Settings<br/>Adjustable weight sliders]
-        FAIR[Fairness Audit<br/>Score distribution by school type]
-        GRID[Candidate Grid<br/>Sparse Profile badges]
-    end
-
-    subgraph Detail["Candidate Detail Panel"]
-        INFO[Personal Info + Education]
-        SCORES[5 Dimension Scores<br/>with explanations + evidence]
-        INSIGHT[AI Insight<br/>Baseline vs AI delta]
-        DETECT[AI Detection<br/>Stylometry metrics]
-        FEYN[Feynman Teaching Score]
-        OVERRIDE[Committee Override]
-    end
-
-    GRID --> Detail
-
-    style Dashboard fill:#e0f2fe,stroke:#0284c7
-    style Detail fill:#fef3c7,stroke:#d97706
-```
-
-## 7. Tech Stack
+## 2. Applicant flow
 
 ```mermaid
 graph LR
-    subgraph FE["Frontend"]
-        NX[Next.js 16] --> RC[React 19]
-        RC --> TW[Tailwind CSS 4]
-        RC --> TS[TypeScript]
-    end
-
-    subgraph BE["Backend"]
-        FA[FastAPI] --> PY[Python 3.12]
-        FA --> PD[Pydantic v2]
-        PY --> AN[Anthropic SDK]
-    end
-
-    subgraph AI["AI Layer"]
-        AN --> CS[Claude Sonnet 4]
-        CS --> SC[Scoring]
-        CS --> DT[Detection]
-        CS --> FM[Feynman Chat + Eval]
-    end
-
-    subgraph NON["Non-AI Processing"]
-        PSE[Signal Extraction]
-        PBS[Baseline Scoring]
-        PST[Statistical Stylometry]
-        PLD[Language Detection]
-        PPI[PII Anonymization]
-    end
-
-    style FE fill:#e0e7ff,stroke:#4f46e5
-    style BE fill:#f0fdf4,stroke:#10b981
-    style AI fill:#fce7f3,stroke:#ec4899
-    style NON fill:#fef3c7,stroke:#d97706
+    A[Sign up] --> B[Personal info] --> C[Education] --> D[Essay & motivation]
+    D --> E[Activities & projects] --> F[Review & submit]
+    F --> G[Evidence ledger built]
+    F --> S[Scenario<br/>pick a situation and a language]
+    S --> T[3–5 replies to the conversation partner]
+    T --> U[Replies rated on the same rubric<br/>weight 0, the applicant sees no level]
 ```
+
+## 3. Evidence ledger pipeline
+
+```mermaid
+graph LR
+    SRC[Applicant's own text<br/>essay · interview notes · recommendation] --> X[Extract<br/>quote proposals per indicator]
+    X --> V{Verbatim check<br/>is the quote in the source?}
+    V -->|no| DROP[Dropped]
+    V -->|yes| R[Rate each indicator<br/>on the BARS scale]
+    R --> AS[Assemble<br/>level derived by rule R0–R3]
+    AS --> L[(Competency rating<br/>level · quotes · ATOLA · source)]
+```
+
+- **Levels:** High / Normal / Weak / *No evidence*. "No evidence" is its own
+  state, never a low score. A claim without described behaviour is capped at
+  Normal.
+- **Determinism:** the competency level is derived from indicator ratings by a
+  fixed rule, so the same evidence always yields the same level.
+- **Versions:** rubric and prompt content are hashed in
+  `backend/ledger/versions.lock.json`; CI fails on a change without a version bump.
+- **Demo mode:** without a model key, `backend/ledger/demo.py` replaces the
+  model calls (hand-authored quotes for the 16 seed applicants, rule-based
+  extraction for new ones). Every quote still passes the real verbatim check,
+  and every view is labelled *"Demo mode · no live model"*.
+
+## 4. Committee flow
+
+```mermaid
+graph LR
+    D[Dashboard<br/>search · filters] --> C[Committee Card<br/>level + quotes per competency]
+    C --> SC[Scenario result<br/>shown next to it, weight 0]
+    C --> O[Change level<br/>reason code required]
+    O --> H[(Override history<br/>AI level stays visible)]
+    C --> IB[Interviewer brief<br/>what to probe]
+    C --> M[Decision memo<br/>RU / KZ, PDF, signatures]
+    D --> FA[Fairness audit<br/>High rate per group, 0.8 review line]
+```
+
+## 5. Fairness
+
+- Scoring never reads school type, region, GPA, income, gender, application
+  language, essay length or manner of speech
+  (`tests/test_no_demographics_in_scoring.py` fails the build otherwise).
+- The fairness audit compares the share of each group rated High per
+  competency, with 95% bootstrap intervals; groups with n < 10 are marked
+  "Not enough data".
+- Swap-and-rescore changes name, region, school type, language and speech
+  style and checks whether any level flips.
+
+## 6. Data model
+
+| Table | Holds |
+|-------|-------|
+| `applicants`, `artifacts` | applications and their documents |
+| `users` | accounts and roles (applicant, interviewer, committee, admin) |
+| ledger runs and scores | stored evidence ledgers with versions |
+| `overrides`, audit log | committee changes, append-only |
+| `feynman_sessions`, `scenario_results` | scenario conversations and their ratings |
+| signatures | decision-memo sign-off |
+
+Migrations live in `backend/migrations/`; `python -m backend.db init` brings a
+database to head and seeds the demo data.

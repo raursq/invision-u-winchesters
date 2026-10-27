@@ -1,11 +1,37 @@
-# InVision U — AI-Assisted Admissions Platform
+# inVision U — AI-Assisted Admissions Platform
 
-> **AI finds the evidence, the committee decides.** Every competency level the
+> **AI finds the evidence. The committee decides.** Every competency level the
 > system shows comes with the applicant's own words as the quote, against the
 > university's behavioural rubric, and says so plainly when there is no evidence
 > rather than scoring it low.
 
-[Demo Video](https://drive.google.com/drive/folders/1ntxiZNCST5MVuq4X8uppDuZCcNnJLgPc?usp=sharing) | [Architecture](docs/architecture.md) | [Task board](docs/STAGE2_TASK_BOARD.md) | [Demo click audit](docs/plan/led-12-demo-click-audit.md)
+🏆 **Top 4 out of ~5,000 participants** at **Decentrathon 5.0**, powered by inDrive  
+🎯 **Semi-finalist** at **GovTech Camp**, powered by inDrive
+
+[Architecture](docs/architecture.md) · [Demo click audit](docs/plan/led-12-demo-click-audit.md) · [Task board](docs/STAGE2_TASK_BOARD.md)
+
+---
+
+## Overview
+
+**The task.** inVision U, a university founded by inDrive, selects applicants
+by potential: leadership, teamwork, values, motivation. The committee reads
+every essay, video and interview by hand; polished writing wins, and a
+decision made by impression is hard to explain or check.
+
+**What we built.** An admissions platform where *AI finds the evidence and the
+committee decides*:
+
+1. **Applicant portal**: a five-step application and a short real-life
+   scenario with a neutral conversation partner, in English, Russian or Kazakh.
+2. **Evidence ledger**: for each of inVision U's competencies, a level on a
+   behavioural scale (BARS) backed by verbatim quotes from the applicant's own
+   text, each checked word for word against the source.
+3. **Committee dashboard**: the Committee Card with levels and quotes, an
+   override with a mandatory reason that is logged, an interviewer brief and a
+   decision memo.
+4. **Fairness audit**: checks whether groups of applicants (for example rural
+   schools) get lower levels than others. Background never enters scoring.
 
 ---
 
@@ -27,10 +53,9 @@ additional language.
 | **Decision memo** (COM-04) | Russian / Kazakh memo and PDF with the evidence, overrides, bias probe, frozen version hashes and committee signatures. |
 | **Fairness audit** (FAIR-07) | Share of each group rated High, per competency, with 95% bootstrap intervals and a 0.8 review line. Groups with n < 10 are marked "Not enough data". |
 | **Swap and rescore** (FAIR-06) | Changes name, region, school type, language and speech style and checks whether any level flips. |
-| **Written presentation** (INP-01) | 150–300 words in any language; the scored input instead of video. Video transcripts are auxiliary and never scored without the applicant's own transcript. |
-| **Teaching Challenge / Scenario Lab** (INP-03) | The applicant teaches a concept to an AI "student". Results are shown as "observed in simulation" with weight 0: they never move a score or a rank. |
+| **Video by people** | The applicant links a video presentation; the committee watches and grades it. The AI reads only the written materials (essay, interview notes, recommendation). |
+| **Scenarios** (INP-04) | The applicant talks a real situation (team conflict, taking initiative, an honest choice) through with a neutral conversation partner, in English, Russian or Kazakh. Their replies are rated on the same rubric as the essays and shown to the committee as "observed in simulation", weight 0: never a change to the AI level or a rank. Without a key the partner follows a script (demo mode). |
 | **Completeness view** (LED-01) | How much material exists per dimension, so the committee sees a candidate assessed on four sources apart from one assessed on an essay alone. It is not a merit score. |
-| **Blind / Informed** (FAIR-01) | Candidate context is hidden from the committee view while evidence is reviewed. |
 
 **What scoring never uses:** school type, region, GPA, family income, gender,
 application language, essay length or manner of speech.
@@ -40,43 +65,50 @@ non-native writing, and nothing calibrated for Kazakh exists.
 
 ---
 
-## Current state (2026-09-27, before the mock demo day)
+## Status
+
+Working end to end:
+
+- **Applicant**: sign up, the five-step application, review and submit; one
+  scenario conversation in English, Russian or Kazakh.
+- **Committee**: dashboard with search and filters; the Committee Card with a
+  level and verbatim quotes per competency; the scenario result next to it at
+  weight 0; level override with a reason code, kept in an append-only history;
+  interviewer brief, growth map and decision memo (PDF).
+- **Fairness audit**: group comparison per competency, with review flags.
+- **Quality**: 445 backend tests pass; the whole demo path produces no 5xx
+  responses and no console errors ([audit](docs/plan/led-12-demo-click-audit.md)).
 
 The demo works **without any API key**. Every click reads from the database, a
 cache labelled as one, or a deterministic baseline. Live-only endpoints answer
-503 "nothing was scored" instead of an error. Checked on a copy of the dev
-database with every model key empty: 445 tests pass, the whole demo path
-produces no 5xx responses and no console errors
-([audit](docs/plan/led-12-demo-click-audit.md)).
+503 "nothing was scored" instead of an error.
 
-Not done yet:
+### Running without a model key
 
-- **Ledger cache: 0 of 16 applicants.** Only c-001 has a ledger, and it is the
-  hand-authored LED-03 worked example for a fictional applicant. It is shown
-  as *"Illustrative worked example — not from this applicant"*, every quote is
-  tagged, and it is not counted in cohort figures. The other 15 show
-  "Unavailable — nothing was scored". With a funded `ANTHROPIC_API_KEY`:
-  `python -m backend.ledger.cache && python -m backend.db init`.
+The hackathon build was demoed without a funded model key, so these parts run
+in a labelled demo mode:
+
+- **The scenario partner follows a script.** The applicant
+  types real answers; the partner's lines are pre-written, and the result is
+  labelled *"Demo mode · scripted partner"*.
+- **Ledgers run in demo mode.** A stand-in replaces
+  the two model calls (`backend/ledger/demo.py`): the 16 seed applicants use
+  quotes written once by hand from their own documents, and a newly submitted
+  application gets a rule-based ledger on submission. Every quote still passes
+  the real verbatim check, and levels, ATOLA gaps and probes come from the real
+  rules. Each view shows the chip *"Demo mode · no live model"*. With a funded
+  `ANTHROPIC_API_KEY`, `python -m backend.ledger.cache && python -m backend.db init`
+  replaces them with real runs.
 - **The attribute-grouped fairness audit on the dashboard uses 200 synthetic
   profiles.** It is labelled "demonstrates the method, not evidence". On the
   real database it has no levels yet, so it shows no figures.
 - **Evaluation harness, swap-and-rescore and cohort probe run the
   deterministic baseline** ("no model call" chip). Their 0% flip rate says
   nothing about the AI scorer yet.
-- **Model card, funder memo and reproducibility** show "Unavailable" until
-  inVision U's historical data arrives.
-- **7 of 9 rubric scales are drafts** until the Talent Craft BARS arrive with
-  the extended methodology.
-
----
-
-## Team
-
-| Name | Role | Contact |
-|------|------|---------|
-| Rauan Salkenov | Developer | [Telegram](https://t.me/regularmusician) · [GitHub](https://github.com/raursq) |
-| Almas Magzumov | Developer | — |
-| Arman Sagnaev | Product Designer | [Telegram](https://t.me/armashq) |
+- **Model card, funder memo and reproducibility** show "Unavailable": they
+  need inVision U's historical admissions data.
+- **7 of 9 rubric scales are drafts**, written from the published one-line
+  competency descriptions.
 
 ---
 
@@ -98,16 +130,16 @@ Prompt and rubric content is hashed and locked in
 ## Architecture
 
 ```
-Applicant Portal            Teaching Challenge           Admissions Dashboard
- (application +              (AI student, weight 0,       (committee / admin only)
-  written presentation)       cached demo transcript)
+Applicant Portal            Scenarios                    Admissions Dashboard
+ (application: essay,        (conversation partner,       (committee / admin only)
+  video link)                 en/ru/kk, weight 0)
         |                           |                              |
         +---------------------------+------------------------------+
                                     |
                             [FastAPI backend]
      ledger/ (extract -> rate -> ATOLA, versions)   routers/ (auth, candidates, ledger,
      scoring/ (completeness, fairness audit)                  overrides, committee, fairness,
-     committee_memo / prebrief / probe bank                   feynman, analysis, scoring)
+     committee_memo / prebrief / probe bank                   scenarios, analysis, scoring)
      privacy.py (PII stripped before any model call)
                                     |
                  [SQLite: applicants, artifacts, ledger runs,
@@ -121,6 +153,30 @@ Applicant Portal            Teaching Challenge           Admissions Dashboard
 ---
 
 ## Quick Start
+
+### Docker (only Docker Desktop needed)
+
+```bash
+docker compose up --build
+```
+
+Open [http://localhost:3000](http://localhost:3000) and sign in:
+
+| Sign in as | Email | Password | What you can do |
+|------------|-------|----------|-----------------|
+| **Admissions committee** | `committee@invisionu.edu` | `demo2026` | Dashboard with 16 demo applicants, Committee Card with evidence quotes, level override, Fairness Audit |
+| **Applicant** | `applicant@invisionu.edu` | `demo2026` | Fill and submit the application, then talk a scenario through (EN / RU / KZ) |
+
+An applicant account submits one application; use **Sign Up** for more (any
+email works, no confirmation). The database is created and seeded
+on first start (the `backend-data` volume); `docker compose down -v` wipes it.
+No API key is needed. To add one, copy `backend/.env.example` to
+`backend/.env`: compose reads it at run time. Ports can be changed with
+`FRONTEND_PORT` / `BACKEND_PORT`. The browser only talks to the frontend,
+which proxies `/api` to the backend, so the same stack also works from a
+phone on the LAN at `http://<laptop-ip>:3000`.
+
+### Local dev (hot reload)
 
 ```bash
 # Clone
@@ -143,15 +199,14 @@ python -m uvicorn backend.main:app --port 8000
 cd frontend && npm install && npx next dev --port 3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000). The demo committee account
-is `committee@invisionu.edu` / `demo2026`, seeded while `DEMO_MODE=1`.
+Open [http://localhost:3000](http://localhost:3000). The demo accounts are
+`committee@invisionu.edu` and `applicant@invisionu.edu`, both with the password
+`demo2026`, seeded while `DEMO_MODE=1`.
 
 - After pulling changes that touch `backend/migrations/`, run
   `python -m backend.db init` again. The API refuses to start on an outdated
   database and prints this command.
 - `python -m backend.db reset` deletes the local database and rebuilds it from the seed.
-- On the demo machine, log in fresh: a token left from an older database gives
-  one 401 in the console before the redirect to login.
 - Tests: `python -m pytest`.
 
 ---
@@ -173,16 +228,15 @@ is `committee@invisionu.edu` / `demo2026`, seeded while `DEMO_MODE=1`.
 
 ## Known Limitations
 
-- The ledger cache is empty (see *Current state*). Until it is built, the
-  committee card is shown only on the illustrative c-001 example.
+- Ledgers are demo mode until the cache is built with a key (see *Status*).
 - 7 of 9 rubric scales are drafts. The COM-06 probe bank is provisional.
-- No historical data yet (expected from Oct 5), so there is no agreement or
-  fairness evidence on real outcomes. The model card stays empty.
+- No historical admissions data, so there is no agreement or fairness evidence
+  on real outcomes. The model card stays empty.
 - The Kazakh evaluation relies on the same pipeline as Russian and English.
   Cross-lingual agreement has so far only been measured on the deterministic
   baseline.
-- No transcription call is implemented. Video analysis runs only on the
-  applicant's own transcript.
+- The video presentation is for the committee to watch and grade themselves;
+  the dashboard does not analyse it.
 
 ---
 
@@ -198,13 +252,13 @@ is `committee@invisionu.edu` / `demo2026`, seeded while `DEMO_MODE=1`.
 │   ├── scoring/               # completeness reference, fairness audit, synthetic cohort
 │   ├── committee_*.py         # decision memo, pre-brief, probe bank
 │   ├── db/                    # SQLModel tables, repositories, seed (`python -m backend.db init`)
-│   ├── migrations/            # Alembic migrations (0001–0004)
+│   ├── migrations/            # Alembic migrations (0001–0005)
 │   ├── privacy.py             # PII anonymization
 │   └── data/                  # Seed dataset (16 applicants, 3 languages); the local .db is gitignored
 ├── frontend/src/app/
 │   ├── page.tsx               # Landing + application form
 │   ├── auth/                  # Sign in / sign up
-│   ├── teach/                 # Teaching Challenge (applicant)
+│   ├── scenarios/             # Scenarios (applicant)
 │   ├── dashboard/             # Admissions dashboard (committee)
 │   ├── decision-memo/         # Committee decision memo + PDF
 │   ├── evaluation/            # Scorer evaluation harness
@@ -214,6 +268,12 @@ is `committee@invisionu.edu` / `demo2026`, seeded while `DEMO_MODE=1`.
 └── notebooks/                 # validation analysis
 ```
 
-## License
+---
 
-MIT
+## Team
+
+| Contributor | Role | Contribution |
+|-------------|------|--------------|
+| [@raursq](https://github.com/raursq) | AI & Software Engineer | Evidence-ledger pipeline and rubric, scenarios in EN / RU / KZ, offline demo mode, frontend implementation of the design, deployment |
+| [@m4rk1sov](https://github.com/m4rk1sov) | Software Engineer | Database and migrations, auth and roles, API, committee override ledger, fairness audit and evaluation harness, decision memo, Docker and CI |
+| [@armashq](https://t.me/armashq) (Telegram) | UX/UI Designer | The complete UX/UI design of the product: page layouts, visual style and imagery |
